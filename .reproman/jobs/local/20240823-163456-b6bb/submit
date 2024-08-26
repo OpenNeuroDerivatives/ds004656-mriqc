@@ -1,0 +1,43 @@
+#!/bin/sh
+
+#SBATCH --job-name=ds004656-mriqc
+#SBATCH --mail-type=END
+#SBATCH --mail-user=jbwexler@stanford.edu
+#SBATCH --output=/scratch1/03201/jbwexler/openneuro_derivatives/derivatives/mriqc/ds004656-mriqc/.reproman/jobs/local/20240823-163456-b6bb/stdout
+#SBATCH --error=/scratch1/03201/jbwexler/openneuro_derivatives/derivatives/mriqc/ds004656-mriqc/.reproman/jobs/local/20240823-163456-b6bb/stderr
+
+#SBATCH --nodes=3
+#SBATCH --ntasks=15
+#SBATCH --time=8:00:00
+#SBATCH --partition=normal
+
+metadir=/scratch1/03201/jbwexler/openneuro_derivatives/derivatives/mriqc/ds004656-mriqc/.reproman/jobs/local/20240823-163456-b6bb
+
+module load launcher
+module load remora
+module load ooops
+set_io_param_batch $SLURM_JOBID 0 low
+export LAUNCHER_JOB_FILE="$metadir/launcher"
+
+job_name=ds004656-mriqc
+software="${job_name#*-}"
+work_dir_scratch="$SCRATCH/work_dir/$software/"
+
+for task_id in $(seq 0 14); do
+    printf "$metadir/runscript %d >$metadir/stdout.%d 2>$metadir/stderr.%d\n" \
+      "$task_id" "$task_id" "$task_id" >>"$LAUNCHER_JOB_FILE"
+done
+
+# Symlink containers annex to node tmp
+chmod -R 775 code/containers/.git/annex
+rm -rf code/containers/.git/annex
+ln -s /tmp/annexes/containers code/containers/.git/annex
+
+# Use cdtools to copy containers to node tmp
+CDTools=/home1/apps/CDTools/1.1
+export PATH=${PATH}:${CDTools}/bin
+distribute.bash ${STAGING}/annexes
+
+wait
+
+remora "$LAUNCHER_DIR"/paramrun
